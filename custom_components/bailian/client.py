@@ -97,6 +97,16 @@ class ChatResult:
     raw: dict[str, Any]
 
 
+@dataclass(slots=True)
+class CustomVoice:
+    """A user-enrolled or designed TTS voice from Bailian."""
+
+    voice_id: str
+    label: str
+    target_model: str | None = None
+    source: str = "custom"
+
+
 class BailianClient:
     """Async client for Bailian chat, STT and TTS APIs."""
 
@@ -200,6 +210,71 @@ class BailianClient:
             seen.add(model_id)
             models.append(model_id)
         return models
+
+    async def async_list_custom_voices(self) -> list[CustomVoice]:
+        """Return enrolled / designed TTS voices for this API key.
+
+        CosyVoice clone/design and Qwen clone/design use the same customization
+        endpoint with different model + action pairs. One catalog failing must
+        not hide the others.
+        """
+        voices: list[CustomVoice] = []
+        seen: set[str] = set()
+        catalogs = (
+            ("voice-enrollment", "list_voice"),
+            ("qwen-voice-enrollment", "list"),
+            ("qwen-voice-design", "list"),
+        )
+        for model, action in catalogs:
+            try:
+                found = await self._async_list_enrollment_voices(model, action)
+            except BailianError as err:
+                LOGGER.debug("Could not list %s voices: %s", model, err)
+                continue
+            for voice in found:
+                if voice.voice_id in seen:
+                    continue
+                seen.add(voice.voice_id)
+                voices.append(voice)
+        LOGGER.debug("Listed %s custom Bailian TTS voices", len(voices))
+        return voices
+
+    async def _async_list_enrollment_voices(
+        self, model: str, action: str
+    ) -> list[CustomVoice]:
+        """Page through one voice-enrollment catalog."""
+        voices: list[CustomVoice] = []
+        page_index = 0
+        while page_index < _VOICE_LIST_MAX_PAGES:
+            payload = await self._request(
+                "POST",
+                f"{self._native_url}/services/audio/tts/customization",
+                json_data={
+                    "model": model,
+                    "input": {
+                        "action": action,
+                        "page_index": page_index,
+                        "page_size": _VOICE_LIST_PAGE_SIZE,
+                    },
+                },
+            )
+            output = payload.get("output") if isinstance(payload, dict) else None
+            if not isinstance(output, dict):
+                break
+            voice_list = output.get("voice_list") or []
+            if not isinstance(voice_list, list) or not voice_list:
+                break
+            for item in voice_list:
+                parsed = _parse_custom_voice(item, source=model)
+                if parsed is not None:
+                    voices.append(parsed)
+            total_count = output.get("total_count")
+            if isinstance(total_count, int) and len(voices) >= total_count:
+                break
+            if len(voice_list) < _VOICE_LIST_PAGE_SIZE:
+                break
+            page_index += 1
+        return voices
 
     async def async_chat(
         self,
@@ -393,6 +468,76 @@ def _is_speech_synthesizer_model(model: str) -> bool:
     """Return True for CosyVoice / Qwen-Audio-TTS synthesizer endpoints."""
     lowered = model.lower()
     return lowered.startswith("cosyvoice") or lowered.startswith("qwen-audio-")
+
+
+_VOICE_LIST_PAGE_SIZE = 10
+_VOICE_LIST_MAX_PAGES = 50
+_OK_VOICE_STATUSES = frozenset({"", "OK", "SUCCESS"})
+_COSYVOICE_MODEL_PREFIXES = (
+    "cosyvoice-v3.5-plus",
+    "cosyvoice-v3.5-flash",
+    "cosyvoice-v3-plus",
+    "cosyvoice-v3-flash",
+    "cosyvoice-v2",
+)
+
+
+def infer_cosyvoice_model(voice_id: str) -> str | None:
+    """Infer the CosyVoice synthesis model from a cloned / designed voice ID."""
+    lowered = voice_id.lower()
+    for prefix in _COSYVOICE_MODEL_PREFIXES:
+        if lowered.startswith(f"{prefix}-"):
+            return prefix
+    return None
+
+
+def http_synthesis_model(model: str) -> str:
+    """Map realtime-only voice models onto an HTTP-capable equivalent."""
+    lowered = model.lower()
+    if "realtime" in lowered and "qwen3-tts-vc" in lowered:
+        return "qwen3-tts-vc-flash"
+    return model
+
+
+def resolve_tts_model(
+    voice: str,
+    configured_model: str,
+    custom: CustomVoice | None = None,
+) -> str:
+    """Pick the synthesis model that matches a (possibly custom) voice."""
+    if custom and custom.target_model:
+        return http_synthesis_model(custom.target_model)
+    inferred = infer_cosyvoice_model(voice)
+    if inferred:
+        return inferred
+    return configured_model
+
+
+def _parse_custom_voice(item: Any, *, source: str) -> CustomVoice | None:
+    """Parse one enrollment / design catalog item."""
+    if not isinstance(item, dict):
+        return None
+    voice_id = item.get("voice_id") or item.get("voice")
+    if not isinstance(voice_id, str) or not voice_id.strip():
+        return None
+    voice_id = voice_id.strip()
+    status = item.get("status")
+    if isinstance(status, str) and status.upper() not in _OK_VOICE_STATUSES:
+        return None
+    target_model = item.get("target_model")
+    if not isinstance(target_model, str) or not target_model.strip():
+        target_model = infer_cosyvoice_model(voice_id)
+    else:
+        target_model = target_model.strip()
+    label = f"{voice_id} (自建)"
+    if target_model:
+        label = f"{voice_id} · {target_model} (自建)"
+    return CustomVoice(
+        voice_id=voice_id,
+        label=label,
+        target_model=target_model,
+        source=source,
+    )
 
 
 _NON_CHAT_MARKERS = (

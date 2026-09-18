@@ -17,7 +17,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import BailianConfigEntry
-from .client import BailianError
+from .client import BailianError, CustomVoice, resolve_tts_model
 from .const import (
     CONF_TTS_MODEL,
     CONF_TTS_VOICE,
@@ -65,6 +65,31 @@ class BailianTTSEntity(TextToSpeechEntity):
             entry_type=dr.DeviceEntryType.SERVICE,
         )
         self._voices = [Voice(voice, voice) for voice in TTS_VOICES]
+        self._custom_by_id: dict[str, CustomVoice] = {}
+
+    async def async_added_to_hass(self) -> None:
+        """Load enrolled / designed voices from Bailian."""
+        await super().async_added_to_hass()
+        await self._async_refresh_voices()
+
+    async def _async_refresh_voices(self) -> None:
+        """Merge custom voices ahead of the built-in system list."""
+        custom: list[CustomVoice] = []
+        try:
+            custom = await self.entry.runtime_data.client.async_list_custom_voices()
+        except BailianError as err:
+            LOGGER.debug("Could not list Bailian custom voices: %s", err)
+        self._custom_by_id = {item.voice_id: item for item in custom}
+        voices = [Voice(item.voice_id, item.label) for item in custom]
+        seen = set(self._custom_by_id)
+        selected = self.entry.options.get(CONF_TTS_VOICE)
+        if isinstance(selected, str) and selected not in seen and selected not in TTS_VOICES:
+            voices.insert(0, Voice(selected, selected))
+            seen.add(selected)
+        for voice_id in TTS_VOICES:
+            if voice_id not in seen:
+                voices.append(Voice(voice_id, voice_id))
+        self._voices = voices
 
     @callback
     def async_get_supported_voices(self, language: str) -> list[Voice]:
@@ -86,12 +111,17 @@ class BailianTTSEntity(TextToSpeechEntity):
             ATTR_VOICE,
             self.entry.options.get(CONF_TTS_VOICE, RECOMMENDED_TTS_VOICE),
         )
+        voice_id = str(voice)
+        configured_model = self.entry.options.get(CONF_TTS_MODEL, RECOMMENDED_TTS_MODEL)
+        model = resolve_tts_model(
+            voice_id, configured_model, self._custom_by_id.get(voice_id)
+        )
         language_type = TTS_LANGUAGE_TYPES.get(language.split("-")[0], "Chinese")
         try:
             extension, audio = await self.entry.runtime_data.client.async_synthesize(
                 text=message,
-                model=self.entry.options.get(CONF_TTS_MODEL, RECOMMENDED_TTS_MODEL),
-                voice=str(voice),
+                model=str(model),
+                voice=voice_id,
                 language_type=language_type,
             )
         except BailianError as err:

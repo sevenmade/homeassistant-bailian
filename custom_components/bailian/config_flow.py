@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import voluptuous as vol
@@ -24,6 +24,7 @@ from .client import (
     BailianClient,
     BailianConnectionError,
     BailianError,
+    CustomVoice,
 )
 from .const import (
     CHAT_MODELS,
@@ -97,19 +98,26 @@ STEP_ENGINES_SCHEMA = vol.Schema(
 
 
 def _model_selector(
-    values: list[str], recommended: str | None = None
+    values: Sequence[str] | Sequence[tuple[str, str]],
+    recommended: str | None = None,
 ) -> selector.SelectSelector:
-    """Return a dropdown that also accepts a custom model ID."""
+    """Return a dropdown that also accepts a custom model or voice ID."""
     options: list[selector.SelectOptionDict] = []
     seen: set[str] = set()
-    ordered = list(values)
-    if recommended and recommended not in ordered:
-        ordered.insert(0, recommended)
-    for value in ordered:
+    ordered: list[tuple[str, str]] = []
+    for item in values:
+        if isinstance(item, tuple):
+            value, label = item
+        else:
+            value, label = item, item
+        ordered.append((value, label))
+    if recommended and recommended not in {value for value, _label in ordered}:
+        ordered.insert(0, (recommended, recommended))
+    for value, label in ordered:
         if not value or value in seen:
             continue
         seen.add(value)
-        options.append(selector.SelectOptionDict(value=value, label=value))
+        options.append(selector.SelectOptionDict(value=value, label=label))
     return selector.SelectSelector(
         selector.SelectSelectorConfig(
             options=options,
@@ -145,11 +153,36 @@ async def _async_chat_models(
     return models
 
 
+async def _async_tts_voices(
+    hass: HomeAssistant, data: Mapping[str, Any]
+) -> list[tuple[str, str]]:
+    """Merge enrolled / designed voices ahead of the built-in system list."""
+    custom: list[CustomVoice] = []
+    try:
+        custom = await _client_from_data(hass, data).async_list_custom_voices()
+    except BailianError:
+        LOGGER.debug("Could not list Bailian custom voices, using system list")
+    voices: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for item in custom:
+        if item.voice_id in seen:
+            continue
+        seen.add(item.voice_id)
+        voices.append((item.voice_id, item.label))
+    for voice_id in TTS_VOICES:
+        if voice_id in seen:
+            continue
+        seen.add(voice_id)
+        voices.append((voice_id, voice_id))
+    return voices
+
+
 def _models_schema(
     *,
     chat_models: list[str],
     enable_stt: bool,
     enable_tts: bool,
+    tts_voices: Sequence[str] | Sequence[tuple[str, str]] | None = None,
     current: Mapping[str, Any] | None = None,
 ) -> vol.Schema:
     """Schema for choosing conversation / STT / TTS models."""
@@ -185,7 +218,10 @@ def _models_schema(
                 CONF_TTS_VOICE,
                 default=values.get(CONF_TTS_VOICE, RECOMMENDED_TTS_VOICE),
             )
-        ] = _model_selector(list(TTS_VOICES), RECOMMENDED_TTS_VOICE)
+        ] = _model_selector(
+            list(tts_voices) if tts_voices is not None else list(TTS_VOICES),
+            RECOMMENDED_TTS_VOICE,
+        )
     return vol.Schema(schema)
 
 
@@ -198,6 +234,13 @@ async def _async_options_schema(
     selected = current.get(CONF_CHAT_MODEL)
     if isinstance(selected, str) and selected not in chat_models:
         chat_models.insert(0, selected)
+
+    tts_voices = await _async_tts_voices(hass, entry.data)
+    selected_voice = current.get(CONF_TTS_VOICE)
+    if isinstance(selected_voice, str) and selected_voice not in {
+        value for value, _label in tts_voices
+    }:
+        tts_voices.insert(0, (selected_voice, selected_voice))
 
     apis: list[selector.SelectOptionDict] = []
     try:
@@ -258,7 +301,7 @@ async def _async_options_schema(
         vol.Required(
             CONF_TTS_VOICE,
             default=current.get(CONF_TTS_VOICE, RECOMMENDED_TTS_VOICE),
-        ): _model_selector(list(TTS_VOICES), RECOMMENDED_TTS_VOICE),
+        ): _model_selector(tts_voices, RECOMMENDED_TTS_VOICE),
     }
     if apis:
         schema[
@@ -391,12 +434,14 @@ class BailianConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
         chat_models = await _async_chat_models(self.hass, self._user_input)
+        tts_voices = await _async_tts_voices(self.hass, self._user_input)
         return self.async_show_form(
             step_id="models",
             data_schema=_models_schema(
                 chat_models=chat_models,
                 enable_stt=bool(self._engines[CONF_ENABLE_STT]),
                 enable_tts=bool(self._engines[CONF_ENABLE_TTS]),
+                tts_voices=tts_voices,
             ),
         )
 

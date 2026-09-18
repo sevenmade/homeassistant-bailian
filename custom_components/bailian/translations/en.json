@@ -42,7 +42,7 @@
           "enable_thinking": "Keep this off for home control. Thinking mode increases latency.",
           "stt_model": "Recommended: qwen3-asr-flash.",
           "tts_model": "Recommended: qwen3-tts-flash.",
-          "tts_voice": "System voice for Qwen TTS, such as Cherry."
+          "tts_voice": "System voice such as Cherry, or a custom cloned/designed voice from your Bailian account."
         }
       }
     },
@@ -99,7 +99,8 @@
           "prompt": "System instructions for the conversation agent. Templates are supported.",
           "chat_model": "Live catalog from Bailian plus recommended IDs. You can also type a custom model ID.",
           "enable_thinking": "Keep this off for voice control. Thinking mode increases latency.",
-          "stt_prompt": "Optional context that improves recognition of device names and scenes."
+          "stt_prompt": "Optional context that improves recognition of device names and scenes.",
+          "tts_voice": "Includes cloned and designed voices from your Bailian account, listed before system voices."
         }
       }
     }

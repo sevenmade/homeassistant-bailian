@@ -95,9 +95,9 @@
 | --- | --- | --- |
 | 对话 | `qwen3.8-flash` | `qwen3.7-plus`、`qwen3.8-max`、`qwen-plus`、`qwen-flash`、`qwen-turbo` |
 | STT | `qwen3-asr-flash` | `qwen3-asr-flash-2026-02-10`、`qwen3-asr-flash-2025-09-08` |
-| TTS | `qwen3-tts-flash` | `qwen3-tts-instruct-flash`、`qwen-audio-3.0-tts-flash`、`cosyvoice-v3-flash` |
+| TTS | `qwen3-tts-flash` | `qwen3-tts-instruct-flash`、`qwen3-tts-vc-flash`、`qwen-audio-3.0-tts-flash`、`cosyvoice-v3-flash` |
 
-TTS 音色列表（`qwen3-tts-flash`）：`Cherry`、`Serena`、`Ethan`、`Chelsie` 等，可在选项中选择或手动填写。
+TTS 音色会先列出当前 API Key 下**复刻 / 设计的自建音色**（标注「自建」），再列出系统音色（`Cherry`、`Serena` 等）。也可手动填写音色 ID。选用自建音色时，合成会自动改用该音色绑定的模型（例如 CosyVoice 复刻音色走 `cosyvoice-v3-flash`，千问声音复刻走 `qwen3-tts-vc-flash`）。
 
 文档：
 
@@ -106,6 +106,7 @@ TTS 音色列表（`qwen3-tts-flash`）：`Cherry`、`Serena`、`Ethan`、`Chels
 - [文本生成 / 对话](https://docs.bailian.console.aliyun.com/zh/model-studio/text-generation-model.md)
 - [语音识别](https://docs.bailian.console.aliyun.com/zh/model-studio/asr-model.md)
 - [语音合成](https://docs.bailian.console.aliyun.com/zh/model-studio/tts-model.md)
+- [声音复刻](https://help.aliyun.com/zh/model-studio/voice-cloning-api-references)
 
 ## 只要对话、不要语音
 
@@ -122,7 +123,7 @@ Assist 管道可以混用：对话用百炼，STT / TTS 用其他引擎。
 
 - 全程异步 HTTP 调用，不依赖官方同步 `dashscope` SDK
 - 不要使用 Token Plan / Coding Plan 的域名和 Key（那是给编程工具用的，不能当 Home Assistant 后端）
-- 当前不做百炼智能体工作流、Omni 全双工语音、声音复刻
+- 当前不做百炼智能体工作流、Omni 全双工语音；自建音色只支持选择账号里已复刻 / 已设计的，不在 Home Assistant 里创建
 
 ## 许可证
 

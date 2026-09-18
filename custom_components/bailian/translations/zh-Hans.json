@@ -42,7 +42,7 @@
           "enable_thinking": "控家请保持关闭。思考模式会明显增加延迟。",
           "stt_model": "推荐 qwen3-asr-flash。",
           "tts_model": "推荐 qwen3-tts-flash。",
-          "tts_voice": "千问 TTS 系统音色，例如 Cherry。"
+          "tts_voice": "系统音色例如 Cherry，以及账号里复刻、设计的自建音色。"
         }
       }
     },
@@ -99,7 +99,8 @@
           "prompt": "对话代理的系统指令，支持模板。",
           "chat_model": "下拉选择百炼对话模型，也可以手动输入模型 ID。",
           "enable_thinking": "语音控家请保持关闭。思考模式会明显增加延迟。",
-          "stt_prompt": "可选上下文，有助于识别设备名和场景名。"
+          "stt_prompt": "可选上下文，有助于识别设备名和场景名。",
+          "tts_voice": "会拉取账号里复刻、设计的自建音色，排在系统音色前面。"
         }
       }
     }
