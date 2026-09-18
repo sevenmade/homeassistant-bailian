@@ -26,6 +26,24 @@
           "enable_stt": "Used by Assist satellites and voice pipelines. Leave off if you only type.",
           "enable_tts": "Used to speak replies. Leave off if you already have another TTS engine."
         }
+      },
+      "models": {
+        "title": "Models",
+        "description": "Choose which Bailian models to use. You can type a model ID that is not in the list. These can be changed later in the integration options.",
+        "data": {
+          "chat_model": "Chat model",
+          "enable_thinking": "Enable thinking mode",
+          "stt_model": "Speech-to-text model",
+          "tts_model": "Text-to-speech model",
+          "tts_voice": "Default voice"
+        },
+        "data_description": {
+          "chat_model": "Recommended: qwen3.8-flash. Use a Flash/Turbo model for voice commands.",
+          "enable_thinking": "Keep this off for home control. Thinking mode increases latency.",
+          "stt_model": "Recommended: qwen3-asr-flash.",
+          "tts_model": "Recommended: qwen3-tts-flash.",
+          "tts_voice": "System voice for Qwen TTS, such as Cherry."
+        }
       }
     },
     "error": {
@@ -79,6 +97,7 @@
           "enable_tts": "Disable this if you already use another TTS engine, or do not need spoken replies.",
           "llm_hass_api": "Allow the model to call Assist tools for exposed entities.",
           "prompt": "System instructions for the conversation agent. Templates are supported.",
+          "chat_model": "Live catalog from Bailian plus recommended IDs. You can also type a custom model ID.",
           "enable_thinking": "Keep this off for voice control. Thinking mode increases latency.",
           "stt_prompt": "Optional context that improves recognition of device names and scenes."
         }

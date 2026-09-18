@@ -26,6 +26,24 @@
           "enable_stt": "给 Assist 卫星和语音管道用。如果只打字聊天，可以关掉。",
           "enable_tts": "用来朗读回复。如果已经在用别的 TTS，可以关掉。"
         }
+      },
+      "models": {
+        "title": "选择模型",
+        "description": "选择对话、语音识别和语音合成使用的百炼模型。列表可下拉选择，也可以手动输入模型 ID。之后仍可在集成选项里修改。",
+        "data": {
+          "chat_model": "对话模型",
+          "enable_thinking": "开启思考模式",
+          "stt_model": "语音识别模型",
+          "tts_model": "语音合成模型",
+          "tts_voice": "默认音色"
+        },
+        "data_description": {
+          "chat_model": "推荐 qwen3.8-flash。语音控家请选 Flash / Turbo，延迟更低。",
+          "enable_thinking": "控家请保持关闭。思考模式会明显增加延迟。",
+          "stt_model": "推荐 qwen3-asr-flash。",
+          "tts_model": "推荐 qwen3-tts-flash。",
+          "tts_voice": "千问 TTS 系统音色，例如 Cherry。"
+        }
       }
     },
     "error": {
@@ -79,6 +97,7 @@
           "enable_tts": "已有其他 TTS，或不需要朗读回复时关掉。",
           "llm_hass_api": "允许模型调用 Assist 工具，控制已暴露给助手的实体。",
           "prompt": "对话代理的系统指令，支持模板。",
+          "chat_model": "下拉选择百炼对话模型，也可以手动输入模型 ID。",
           "enable_thinking": "语音控家请保持关闭。思考模式会明显增加延迟。",
           "stt_prompt": "可选上下文，有助于识别设备名和场景名。"
         }

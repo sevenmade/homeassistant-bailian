@@ -184,7 +184,22 @@ class BailianClient:
 
     async def async_validate(self) -> None:
         """Validate credentials by listing compatible-mode models."""
-        await self._request("GET", f"{self._compatible_url}/models")
+        await self.async_list_chat_models()
+
+    async def async_list_chat_models(self) -> list[str]:
+        """Return chat-capable model IDs from the compatible-mode API."""
+        payload = await self._request("GET", f"{self._compatible_url}/models")
+        models: list[str] = []
+        seen: set[str] = set()
+        for item in payload.get("data") or []:
+            model_id = item.get("id") if isinstance(item, dict) else None
+            if not isinstance(model_id, str) or model_id in seen:
+                continue
+            if not _is_chat_model(model_id):
+                continue
+            seen.add(model_id)
+            models.append(model_id)
+        return models
 
     async def async_chat(
         self,
@@ -378,3 +393,34 @@ def _is_speech_synthesizer_model(model: str) -> bool:
     """Return True for CosyVoice / Qwen-Audio-TTS synthesizer endpoints."""
     lowered = model.lower()
     return lowered.startswith("cosyvoice") or lowered.startswith("qwen-audio-")
+
+
+_NON_CHAT_MARKERS = (
+    "tts",
+    "asr",
+    "wan2",
+    "wanx",
+    "image",
+    "embedding",
+    "rerank",
+    "speech",
+    "omni",
+    "qwen-vl",
+    "qwen2-vl",
+    "qwen2.5-vl",
+    "qwen3-vl",
+    "qwen-audio",
+    "qwen2-audio",
+    "paraformer",
+    "cosyvoice",
+    "sambert",
+    "fun-asr",
+    "gummy",
+    "qwen-mt",
+)
+
+
+def _is_chat_model(model_id: str) -> bool:
+    """Return True if a model ID looks like a text chat model."""
+    lowered = model_id.lower()
+    return not any(marker in lowered for marker in _NON_CHAT_MARKERS)

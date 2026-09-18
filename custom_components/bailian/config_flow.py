@@ -96,101 +96,186 @@ STEP_ENGINES_SCHEMA = vol.Schema(
 )
 
 
-def _options_schema(hass: HomeAssistant, options: Mapping[str, Any] | None) -> vol.Schema:
-    """Return the options schema with current values as suggested defaults."""
-    current = {**RECOMMENDED_OPTIONS, **(options or {})}
-    apis = [
-        selector.SelectOptionDict(label=api.name, value=api.id)
-        for api in llm.async_get_apis(hass)
-    ]
-    return vol.Schema(
-        {
+def _model_selector(
+    values: list[str], recommended: str | None = None
+) -> selector.SelectSelector:
+    """Return a dropdown that also accepts a custom model ID."""
+    options: list[selector.SelectOptionDict] = []
+    seen: set[str] = set()
+    ordered = list(values)
+    if recommended and recommended not in ordered:
+        ordered.insert(0, recommended)
+    for value in ordered:
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        options.append(selector.SelectOptionDict(value=value, label=value))
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=options,
+            custom_value=True,
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _client_from_data(hass: HomeAssistant, data: Mapping[str, Any]) -> BailianClient:
+    """Build a client from config entry / flow data."""
+    return BailianClient(
+        session=async_get_clientsession(hass),
+        api_key=data[CONF_API_KEY],
+        region=data[CONF_REGION],
+        workspace_id=data.get(CONF_WORKSPACE_ID),
+    )
+
+
+async def _async_chat_models(
+    hass: HomeAssistant, data: Mapping[str, Any]
+) -> list[str]:
+    """Merge built-in chat models with the live Bailian catalog."""
+    models = list(CHAT_MODELS)
+    try:
+        remote = await _client_from_data(hass, data).async_list_chat_models()
+    except BailianError:
+        LOGGER.debug("Could not list Bailian chat models, using built-in list")
+        remote = []
+    for model in remote:
+        if model not in models:
+            models.append(model)
+    return models
+
+
+def _models_schema(
+    *,
+    chat_models: list[str],
+    enable_stt: bool,
+    enable_tts: bool,
+    current: Mapping[str, Any] | None = None,
+) -> vol.Schema:
+    """Schema for choosing conversation / STT / TTS models."""
+    values = dict(RECOMMENDED_OPTIONS)
+    if current:
+        values.update(current)
+    schema: dict[Any, Any] = {
+        vol.Required(
+            CONF_CHAT_MODEL,
+            default=values.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
+        ): _model_selector(chat_models, RECOMMENDED_CHAT_MODEL),
+        vol.Required(
+            CONF_ENABLE_THINKING,
+            default=values.get(CONF_ENABLE_THINKING, RECOMMENDED_ENABLE_THINKING),
+        ): selector.BooleanSelector(),
+    }
+    if enable_stt:
+        schema[
             vol.Required(
-                CONF_ENABLE_STT,
-                default=current.get(CONF_ENABLE_STT, RECOMMENDED_ENABLE_STT),
-            ): selector.BooleanSelector(),
+                CONF_STT_MODEL,
+                default=values.get(CONF_STT_MODEL, RECOMMENDED_STT_MODEL),
+            )
+        ] = _model_selector(list(STT_MODELS), RECOMMENDED_STT_MODEL)
+    if enable_tts:
+        schema[
             vol.Required(
-                CONF_ENABLE_TTS,
-                default=current.get(CONF_ENABLE_TTS, RECOMMENDED_ENABLE_TTS),
-            ): selector.BooleanSelector(),
+                CONF_TTS_MODEL,
+                default=values.get(CONF_TTS_MODEL, RECOMMENDED_TTS_MODEL),
+            )
+        ] = _model_selector(list(TTS_MODELS), RECOMMENDED_TTS_MODEL)
+        schema[
+            vol.Required(
+                CONF_TTS_VOICE,
+                default=values.get(CONF_TTS_VOICE, RECOMMENDED_TTS_VOICE),
+            )
+        ] = _model_selector(list(TTS_VOICES), RECOMMENDED_TTS_VOICE)
+    return vol.Schema(schema)
+
+
+async def _async_options_schema(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> vol.Schema:
+    """Return the options schema with current values as defaults."""
+    current = {**RECOMMENDED_OPTIONS, **entry.options}
+    chat_models = await _async_chat_models(hass, entry.data)
+    selected = current.get(CONF_CHAT_MODEL)
+    if isinstance(selected, str) and selected not in chat_models:
+        chat_models.insert(0, selected)
+
+    apis: list[selector.SelectOptionDict] = []
+    try:
+        apis = [
+            selector.SelectOptionDict(label=api.name, value=api.id)
+            for api in llm.async_get_apis(hass)
+        ]
+    except Exception:  # noqa: BLE001
+        LOGGER.debug("Could not load Home Assistant LLM APIs")
+
+    schema: dict[Any, Any] = {
+        vol.Required(
+            CONF_ENABLE_STT,
+            default=current.get(CONF_ENABLE_STT, RECOMMENDED_ENABLE_STT),
+        ): selector.BooleanSelector(),
+        vol.Required(
+            CONF_ENABLE_TTS,
+            default=current.get(CONF_ENABLE_TTS, RECOMMENDED_ENABLE_TTS),
+        ): selector.BooleanSelector(),
+        vol.Required(
+            CONF_CHAT_MODEL,
+            default=current.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
+        ): _model_selector(chat_models, RECOMMENDED_CHAT_MODEL),
+        vol.Required(
+            CONF_ENABLE_THINKING,
+            default=current.get(CONF_ENABLE_THINKING, RECOMMENDED_ENABLE_THINKING),
+        ): selector.BooleanSelector(),
+        vol.Required(
+            CONF_TEMPERATURE,
+            default=current.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0, max=2, step=0.1, mode=selector.NumberSelectorMode.SLIDER
+            )
+        ),
+        vol.Required(
+            CONF_MAX_TOKENS,
+            default=current.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=64, max=8192, step=64, mode=selector.NumberSelectorMode.BOX
+            )
+        ),
+        vol.Required(
+            CONF_STT_MODEL,
+            default=current.get(CONF_STT_MODEL, RECOMMENDED_STT_MODEL),
+        ): _model_selector(list(STT_MODELS), RECOMMENDED_STT_MODEL),
+        vol.Optional(
+            CONF_STT_PROMPT,
+            description={
+                "suggested_value": current.get(CONF_STT_PROMPT, RECOMMENDED_STT_PROMPT)
+            },
+        ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
+        vol.Required(
+            CONF_TTS_MODEL,
+            default=current.get(CONF_TTS_MODEL, RECOMMENDED_TTS_MODEL),
+        ): _model_selector(list(TTS_MODELS), RECOMMENDED_TTS_MODEL),
+        vol.Required(
+            CONF_TTS_VOICE,
+            default=current.get(CONF_TTS_VOICE, RECOMMENDED_TTS_VOICE),
+        ): _model_selector(list(TTS_VOICES), RECOMMENDED_TTS_VOICE),
+    }
+    if apis:
+        schema[
             vol.Optional(
                 CONF_LLM_HASS_API,
                 description={"suggested_value": current.get(CONF_LLM_HASS_API)},
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(options=apis, multiple=True)
-            ),
-            vol.Optional(
-                CONF_PROMPT,
-                description={"suggested_value": current.get(CONF_PROMPT)},
-            ): selector.TemplateSelector(),
-            vol.Optional(
-                CONF_CHAT_MODEL,
-                default=current.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=CHAT_MODELS,
-                    custom_value=True,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            ),
-            vol.Optional(
-                CONF_ENABLE_THINKING,
-                default=current.get(CONF_ENABLE_THINKING, RECOMMENDED_ENABLE_THINKING),
-            ): selector.BooleanSelector(),
-            vol.Optional(
-                CONF_TEMPERATURE,
-                default=current.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=0, max=2, step=0.1, mode=selector.NumberSelectorMode.SLIDER
-                )
-            ),
-            vol.Optional(
-                CONF_MAX_TOKENS,
-                default=current.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=64, max=8192, step=64, mode=selector.NumberSelectorMode.BOX
-                )
-            ),
-            vol.Optional(
-                CONF_STT_MODEL,
-                default=current.get(CONF_STT_MODEL, RECOMMENDED_STT_MODEL),
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=STT_MODELS,
-                    custom_value=True,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            ),
-            vol.Optional(
-                CONF_STT_PROMPT,
-                description={"suggested_value": current.get(CONF_STT_PROMPT, RECOMMENDED_STT_PROMPT)},
-            ): selector.TextSelector(
-                selector.TextSelectorConfig(multiline=True)
-            ),
-            vol.Optional(
-                CONF_TTS_MODEL,
-                default=current.get(CONF_TTS_MODEL, RECOMMENDED_TTS_MODEL),
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=TTS_MODELS,
-                    custom_value=True,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            ),
-            vol.Optional(
-                CONF_TTS_VOICE,
-                default=current.get(CONF_TTS_VOICE, RECOMMENDED_TTS_VOICE),
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=TTS_VOICES,
-                    custom_value=True,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            ),
-        }
-    )
+            )
+        ] = selector.SelectSelector(
+            selector.SelectSelectorConfig(options=apis, multiple=True)
+        )
+    schema[
+        vol.Optional(
+            CONF_PROMPT,
+            description={"suggested_value": current.get(CONF_PROMPT)},
+        )
+    ] = selector.TemplateSelector()
+    return vol.Schema(schema)
 
 
 async def _validate_input(hass: HomeAssistant, user_input: dict[str, Any]) -> None:
@@ -199,14 +284,7 @@ async def _validate_input(hass: HomeAssistant, user_input: dict[str, Any]) -> No
     workspace_id = (user_input.get(CONF_WORKSPACE_ID) or "").strip() or None
     if region in REGIONS_REQUIRING_WORKSPACE and not workspace_id:
         raise WorkspaceRequiredError
-
-    client = BailianClient(
-        session=async_get_clientsession(hass),
-        api_key=user_input[CONF_API_KEY],
-        region=region,
-        workspace_id=workspace_id,
-    )
-    await client.async_validate()
+    await _client_from_data(hass, user_input).async_validate()
 
 
 class BailianConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -217,6 +295,10 @@ class BailianConfigFlow(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialize the config flow."""
         self._user_input: dict[str, Any] = {}
+        self._engines: dict[str, Any] = {
+            CONF_ENABLE_STT: RECOMMENDED_ENABLE_STT,
+            CONF_ENABLE_TTS: RECOMMENDED_ENABLE_TTS,
+        }
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -281,9 +363,25 @@ class BailianConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Choose optional speech engines. Conversation is always enabled."""
         if user_input is not None:
+            self._engines = {
+                CONF_ENABLE_STT: bool(user_input[CONF_ENABLE_STT]),
+                CONF_ENABLE_TTS: bool(user_input[CONF_ENABLE_TTS]),
+            }
+            return await self.async_step_models()
+
+        return self.async_show_form(
+            step_id="engines",
+            data_schema=STEP_ENGINES_SCHEMA,
+        )
+
+    async def async_step_models(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose chat / STT / TTS models before creating the entry."""
+        if user_input is not None:
             options = dict(RECOMMENDED_OPTIONS)
-            options[CONF_ENABLE_STT] = user_input[CONF_ENABLE_STT]
-            options[CONF_ENABLE_TTS] = user_input[CONF_ENABLE_TTS]
+            options.update(self._engines)
+            options.update(user_input)
             region = self._user_input[CONF_REGION]
             title = f"{DEFAULT_NAME} ({REGION_LABELS.get(region, region)})"
             return self.async_create_entry(
@@ -292,9 +390,14 @@ class BailianConfigFlow(ConfigFlow, domain=DOMAIN):
                 options=options,
             )
 
+        chat_models = await _async_chat_models(self.hass, self._user_input)
         return self.async_show_form(
-            step_id="engines",
-            data_schema=STEP_ENGINES_SCHEMA,
+            step_id="models",
+            data_schema=_models_schema(
+                chat_models=chat_models,
+                enable_stt=bool(self._engines[CONF_ENABLE_STT]),
+                enable_tts=bool(self._engines[CONF_ENABLE_TTS]),
+            ),
         )
 
     async def async_step_reauth(
@@ -316,16 +419,16 @@ class BailianOptionsFlow(OptionsFlow):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Manage the options."""
+        """Manage the options, including model selection."""
         if user_input is not None:
             if CONF_LLM_HASS_API in user_input and not user_input[CONF_LLM_HASS_API]:
                 user_input.pop(CONF_LLM_HASS_API)
-            return self.async_create_entry(title="", data=user_input)
+            if CONF_MAX_TOKENS in user_input:
+                user_input[CONF_MAX_TOKENS] = int(user_input[CONF_MAX_TOKENS])
+            merged = {**self.config_entry.options, **user_input}
+            return self.async_create_entry(title="", data=merged)
 
         return self.async_show_form(
             step_id="init",
-            data_schema=self.add_suggested_values_to_schema(
-                _options_schema(self.hass, self.config_entry.options),
-                self.config_entry.options,
-            ),
+            data_schema=await _async_options_schema(self.hass, self.config_entry),
         )
