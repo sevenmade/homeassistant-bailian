@@ -391,9 +391,9 @@ class BailianClient:
             raise BailianError(f"Malformed chat response: {payload}") from err
 
         tool_calls = message.get("tool_calls") or []
-        content = message.get("content")
+        content = _normalize_chat_text(message.get("content"))
         if not content:
-            content = message.get("reasoning_content")
+            content = _normalize_chat_text(message.get("reasoning_content"))
         return ChatResult(content=content, tool_calls=tool_calls, raw=payload)
 
     async def async_transcribe(
@@ -494,6 +494,25 @@ class BailianClient:
 
         LOGGER.debug("Downloaded %s bytes of TTS audio", len(audio_bytes))
         return audio_format, audio_bytes
+
+
+def _normalize_chat_text(value: Any) -> str | None:
+    """Flatten chat completion content into a plain string."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value or None
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict) and item.get("text"):
+                parts.append(str(item["text"]))
+        text = "".join(parts).strip()
+        return text or None
+    text = str(value).strip()
+    return text or None
 
 
 def _extract_error_message(payload: dict[str, Any]) -> str:
