@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="images/logo.png" alt="Alibaba Cloud Bailian" width="96">
+</p>
+
 # 阿里云百炼与 Home Assistant 集成
 
 [![GitHub stars](https://img.shields.io/github/stars/sevenmade/homeassistant-bailian.svg?style=social&label=Stars)](https://github.com/sevenmade/homeassistant-bailian/stargazers)
