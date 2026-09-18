@@ -11,15 +11,20 @@ import base64
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 import aiohttp
+from yarl import URL
 
 from .const import (
+    ASR_LANGUAGE_CODES,
     DASHSCOPE_HOSTS,
     LOGGER,
+    RECOMMENDED_TTS_MODEL,
     REGION_BEIJING,
     REGIONS_REQUIRING_WORKSPACE,
     REQUEST_TIMEOUT,
+    TTS_VOICES,
     WORKSPACE_HOSTS,
 )
 
@@ -407,17 +412,18 @@ class BailianClient:
     ) -> str:
         """Transcribe audio with Qwen-ASR (Base64, synchronous)."""
         data_uri = f"data:{mime_type};base64,{base64.b64encode(audio).decode()}"
-        messages: list[dict[str, Any]] = []
-        if context:
-            messages.append(
-                {"role": "system", "content": [{"text": context}]}
-            )
-        messages.append(
-            {"role": "user", "content": [{"audio": data_uri}]}
-        )
-        asr_options: dict[str, Any] = {"enable_itn": True}
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": [{"text": context or ""}]},
+            {"role": "user", "content": [{"audio": data_uri}]},
+        ]
+        asr_options: dict[str, Any] = {"enable_itn": False}
+        lang_code = None
         if language:
-            asr_options["language"] = language.split("-")[0]
+            lang_code = ASR_LANGUAGE_CODES.get(language.split("-")[0].lower())
+        if lang_code in {"zh", "en"}:
+            asr_options["enable_itn"] = True
+        if lang_code:
+            asr_options["language"] = lang_code
 
         payload = await self._request(
             "POST",
@@ -455,8 +461,11 @@ class BailianClient:
                     "input": {
                         "text": text,
                         "voice": voice,
+                    },
+                    "parameters": {
+                        "text_type": "PlainText",
                         "format": audio_format,
-                        "sample_rate": 24000,
+                        "sample_rate": 22050,
                     },
                 },
             )
@@ -474,26 +483,82 @@ class BailianClient:
                 },
             )
 
+        audio_bytes, extension = _extract_audio_payload(payload)
+        if audio_bytes:
+            return extension or audio_format, audio_bytes
+
         audio_url = _extract_audio_url(payload)
         if not audio_url:
-            raise BailianError("TTS response did not include an audio URL")
+            raise BailianError("TTS response did not include audio")
 
-        try:
-            async with self._session.get(
-                audio_url, timeout=self._timeout
-            ) as response:
-                if response.status >= 400:
-                    raise BailianError(
-                        f"Failed to download TTS audio ({response.status})"
-                    )
-                audio_bytes = await response.read()
-        except asyncio.TimeoutError as err:
-            raise BailianConnectionError("Timeout downloading TTS audio") from err
-        except aiohttp.ClientError as err:
-            raise BailianConnectionError(str(err)) from err
-
+        audio_bytes = await self._async_download_audio(audio_url)
         LOGGER.debug("Downloaded %s bytes of TTS audio", len(audio_bytes))
-        return audio_format, audio_bytes
+        return _audio_extension(audio_url, audio_format), audio_bytes
+
+    async def _async_download_audio(self, audio_url: str) -> bytes:
+        """Download a pre-signed TTS URL without re-encoding the query string."""
+        candidates = [audio_url]
+        if audio_url.startswith("http://"):
+            candidates.append("https://" + audio_url[len("http://") :])
+
+        last_error: BailianError | None = None
+        for candidate in candidates:
+            try:
+                return await self._async_download_signed_url(candidate)
+            except (BailianError, BailianConnectionError) as err:
+                last_error = err if isinstance(err, BailianError) else BailianError(str(err))
+                LOGGER.debug("TTS audio download failed for %s: %s", candidate, err)
+        raise last_error or BailianError("Failed to download TTS audio")
+
+    async def _async_download_signed_url(self, audio_url: str) -> bytes:
+        """Follow OSS redirects manually so signatures stay intact."""
+        current = audio_url
+        last_status = 0
+        for _ in range(6):
+            try:
+                request_url: str | URL = URL(current, encoded=True)
+            except ValueError:
+                request_url = current
+            try:
+                async with self._session.get(
+                    request_url,
+                    timeout=self._timeout,
+                    allow_redirects=False,
+                    headers={"Accept": "*/*"},
+                ) as response:
+                    last_status = response.status
+                    if response.status in {301, 302, 303, 307, 308}:
+                        location = response.headers.get("Location")
+                        if not location:
+                            raise BailianError(
+                                f"Failed to download TTS audio ({response.status})"
+                            )
+                        if location.startswith(("http://", "https://")):
+                            current = location
+                        else:
+                            current = str(
+                                URL(current, encoded=True).join(
+                                    URL(location, encoded=True)
+                                )
+                            )
+                        continue
+                    if response.status >= 400:
+                        raise BailianError(
+                            f"Failed to download TTS audio ({response.status})"
+                        )
+                    audio_bytes = await response.read()
+            except asyncio.TimeoutError as err:
+                raise BailianConnectionError(
+                    "Timeout downloading TTS audio"
+                ) from err
+            except aiohttp.ClientError as err:
+                raise BailianConnectionError(str(err)) from err
+            if not audio_bytes:
+                raise BailianError("Downloaded TTS audio was empty")
+            return audio_bytes
+        raise BailianError(
+            f"Failed to download TTS audio ({last_status or 'redirect loop'})"
+        )
 
 
 def _normalize_chat_text(value: Any) -> str | None:
@@ -531,7 +596,11 @@ def _extract_error_message(payload: dict[str, Any]) -> str:
 def _extract_multimodal_text(payload: dict[str, Any]) -> str:
     """Extract transcript text from a DashScope multimodal response."""
     output = payload.get("output") or payload
-    choices = output.get("choices") if isinstance(output, dict) else None
+    if not isinstance(output, dict):
+        return ""
+    if isinstance(output.get("text"), str) and output["text"].strip():
+        return output["text"].strip()
+    choices = output.get("choices")
     if not choices:
         return ""
     message = choices[0].get("message") or {}
@@ -555,11 +624,39 @@ def _extract_audio_url(payload: dict[str, Any]) -> str | None:
     if not isinstance(output, dict):
         return None
     audio = output.get("audio")
+    if isinstance(audio, str) and audio.startswith("http"):
+        return audio
     if isinstance(audio, dict) and audio.get("url"):
         return str(audio["url"])
     if output.get("audio_url"):
         return str(output["audio_url"])
     return None
+
+
+def _extract_audio_payload(payload: dict[str, Any]) -> tuple[bytes | None, str | None]:
+    """Extract inline Base64 audio from a DashScope TTS response."""
+    output = payload.get("output") or payload
+    if not isinstance(output, dict):
+        return None, None
+    audio = output.get("audio")
+    if not isinstance(audio, dict):
+        return None, None
+    data = audio.get("data")
+    if not isinstance(data, str) or not data.strip():
+        return None, None
+    try:
+        return base64.b64decode(data), None
+    except ValueError:
+        return None, None
+
+
+def _audio_extension(audio_url: str, fallback: str) -> str:
+    """Guess a file extension from a TTS audio URL."""
+    path = urlparse(audio_url).path.lower()
+    for ext in ("mp3", "wav", "ogg", "opus", "flac"):
+        if path.endswith(f".{ext}"):
+            return ext
+    return fallback
 
 
 def _is_speech_synthesizer_model(model: str) -> bool:
@@ -622,6 +719,9 @@ def resolve_tts_model(
     inferred = infer_cosyvoice_model(voice)
     if inferred:
         return inferred
+    # Cherry / Serena / ... belong to Qwen3-TTS, not CosyVoice or Qwen-Audio.
+    if voice in TTS_VOICES and _is_speech_synthesizer_model(configured_model):
+        return RECOMMENDED_TTS_MODEL
     return configured_model
 
 

@@ -116,8 +116,8 @@ class BailianSTTEntity(stt.SpeechToTextEntity):
                 language=metadata.language,
                 context=options.get(CONF_STT_PROMPT, RECOMMENDED_STT_PROMPT),
             )
-        except BailianError:
-            LOGGER.exception("Error during Bailian STT")
+        except BailianError as err:
+            LOGGER.exception("Error during Bailian STT: %s", err)
             return stt.SpeechResult(None, stt.SpeechResultState.ERROR)
 
         if not text:

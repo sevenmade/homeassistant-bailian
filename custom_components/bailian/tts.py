@@ -125,6 +125,6 @@ class BailianTTSEntity(TextToSpeechEntity):
                 language_type=language_type,
             )
         except BailianError as err:
-            LOGGER.exception("Error during Bailian TTS")
-            raise HomeAssistantError(str(err)) from err
+            LOGGER.exception("Error during Bailian TTS: %s", err)
+            raise HomeAssistantError(f"Bailian TTS failed: {err}") from err
         return extension, audio

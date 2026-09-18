@@ -144,6 +144,27 @@ TTS_LANGUAGE_TYPES: Final[dict[str, str]] = {
     "pt": "Portuguese",
 }
 
+# Qwen3-ASR language codes. Omit the parameter when the HA language is unknown.
+ASR_LANGUAGE_CODES: Final[dict[str, str]] = {
+    "zh": "zh",
+    "en": "en",
+    "ja": "ja",
+    "ko": "ko",
+    "de": "de",
+    "fr": "fr",
+    "ru": "ru",
+    "es": "es",
+    "it": "it",
+    "pt": "pt",
+    "ar": "ar",
+    "hi": "hi",
+    "id": "id",
+    "th": "th",
+    "tr": "tr",
+    "vi": "vi",
+    "yue": "yue",
+}
+
 STT_LANGUAGES: Final = [
     "zh-CN",
     "en-US",
