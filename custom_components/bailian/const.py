@@ -74,6 +74,7 @@ TTS_MODELS: Final = [
     "qwen3-tts-instruct-flash",
     "qwen3-tts-vc-flash",
     "qwen-audio-3.0-tts-flash",
+    "qwen-audio-3.0-tts-plus",
     "cosyvoice-v3-flash",
     "cosyvoice-v3-plus",
     "cosyvoice-v3.5-flash",

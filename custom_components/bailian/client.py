@@ -491,6 +491,18 @@ def infer_cosyvoice_model(voice_id: str) -> str | None:
     return None
 
 
+def _custom_voice_label(voice_id: str, target_model: str | None) -> str:
+    """Build a short dropdown label from an enrollment voice ID."""
+    display = voice_id
+    if target_model and voice_id.startswith(f"{target_model}-"):
+        prefix = voice_id[len(target_model) + 1 :].split("-", 1)[0]
+        if prefix:
+            display = prefix
+    if target_model:
+        return f"{display} · {target_model} (自建)"
+    return f"{display} (自建)"
+
+
 def http_synthesis_model(model: str) -> str:
     """Map realtime-only voice models onto an HTTP-capable equivalent."""
     lowered = model.lower()
@@ -529,9 +541,7 @@ def _parse_custom_voice(item: Any, *, source: str) -> CustomVoice | None:
         target_model = infer_cosyvoice_model(voice_id)
     else:
         target_model = target_model.strip()
-    label = f"{voice_id} (自建)"
-    if target_model:
-        label = f"{voice_id} · {target_model} (自建)"
+    label = _custom_voice_label(voice_id, target_model)
     return CustomVoice(
         voice_id=voice_id,
         label=label,
