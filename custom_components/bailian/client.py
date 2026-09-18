@@ -688,16 +688,71 @@ def infer_cosyvoice_model(voice_id: str) -> str | None:
     return None
 
 
-def _custom_voice_label(voice_id: str, target_model: str | None) -> str:
-    """Build a short dropdown label from an enrollment voice ID."""
-    display = voice_id
-    if target_model and voice_id.startswith(f"{target_model}-"):
-        prefix = voice_id[len(target_model) + 1 :].split("-", 1)[0]
-        if prefix:
-            display = prefix
+_VOICE_ID_SKIP_TOKENS = frozenset(
+    {"qwen", "tts", "vc", "vd", "audio", "flash", "plus", "realtime"}
+)
+
+
+def _human_voice_name(
+    item: dict[str, Any], voice_id: str, target_model: str | None
+) -> str:
+    """Prefer the user-facing name; never show the raw enrollment ID."""
+    for key in ("name", "voice_name", "preferred_name", "prefix", "display_name"):
+        value = item.get(key)
+        if isinstance(value, str):
+            cleaned = value.strip()
+            if (
+                cleaned
+                and cleaned.lower() != voice_id.lower()
+                and cleaned.lower() != (target_model or "").lower()
+            ):
+                return cleaned
+
+    remainder = voice_id
+    prefixes: list[str] = []
     if target_model:
-        return f"{display} · {target_model} (自建)"
-    return f"{display} (自建)"
+        prefixes.append(target_model)
+    inferred = infer_cosyvoice_model(voice_id)
+    if inferred:
+        prefixes.append(inferred)
+    prefixes.extend(_COSYVOICE_MODEL_PREFIXES)
+    prefixes.extend(
+        (
+            "qwen-audio-3.0-tts-flash",
+            "qwen-audio-3.0-tts-plus",
+            "qwen3-tts-vc-flash",
+            "qwen3-tts-vc-plus",
+        )
+    )
+    lowered = voice_id.lower()
+    for prefix in prefixes:
+        token = f"{prefix.lower()}-"
+        if lowered.startswith(token):
+            remainder = voice_id[len(prefix) + 1 :]
+            break
+
+    if remainder.lower().startswith("vd-"):
+        name = remainder[3:].split("-", 1)[0]
+        if name:
+            return name
+
+    parts = remainder.split("-")
+    if "voice" in parts:
+        name_parts = [
+            part
+            for part in parts[: parts.index("voice")]
+            if part.lower() not in _VOICE_ID_SKIP_TOKENS
+        ]
+        if name_parts:
+            return "-".join(name_parts)
+
+    name = parts[0] if parts else remainder
+    return name or voice_id
+
+
+def _custom_voice_label(name: str) -> str:
+    """Dropdown label for a custom voice."""
+    return name
 
 
 def http_synthesis_model(model: str) -> str:
@@ -741,7 +796,7 @@ def _parse_custom_voice(item: Any, *, source: str) -> CustomVoice | None:
         target_model = infer_cosyvoice_model(voice_id)
     else:
         target_model = target_model.strip()
-    label = _custom_voice_label(voice_id, target_model)
+    label = _custom_voice_label(_human_voice_name(item, voice_id, target_model))
     return CustomVoice(
         voice_id=voice_id,
         label=label,

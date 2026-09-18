@@ -106,7 +106,7 @@
 | STT | `qwen3-asr-flash` | `qwen3-asr-flash-2026-02-10`、`qwen3-asr-flash-2025-09-08` |
 | TTS | `qwen3-tts-flash` | `qwen3-tts-instruct-flash`、`qwen3-tts-vc-flash`、`qwen-audio-3.0-tts-flash`、`cosyvoice-v3-flash` |
 
-TTS 音色会先列出当前 API Key 下**复刻 / 设计的自建音色**（标注「自建」），再列出系统音色（`Cherry`、`Serena` 等）。也可手动填写音色 ID。选用自建音色时，合成会自动改用该音色绑定的模型（例如 CosyVoice 复刻音色走 `cosyvoice-v3-flash`，千问声音复刻走 `qwen3-tts-vc-flash`）。
+TTS 音色会先列出当前 API Key 下**复刻 / 设计的自建音色**（显示你在百炼里起的名称，不是音色 ID），再列出系统音色（`Cherry`、`Serena` 等）。也可手动填写音色 ID。选用自建音色时，合成会自动改用该音色绑定的模型。
 
 文档：
 
