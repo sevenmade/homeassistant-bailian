@@ -23,6 +23,7 @@ CONF_ENABLE_THINKING: Final = "enable_thinking"
 CONF_TEMPERATURE: Final = "temperature"
 CONF_MAX_TOKENS: Final = "max_tokens"
 CONF_STT_PROMPT: Final = "stt_prompt"
+CONF_REFRESH_MODELS: Final = "refresh_models"
 
 DEFAULT_NAME: Final = "Alibaba Cloud Bailian"
 DEFAULT_CONVERSATION_NAME: Final = "Bailian Conversation"

@@ -107,6 +107,21 @@ class CustomVoice:
     source: str = "custom"
 
 
+@dataclass(slots=True)
+class AuthorizedModel:
+    """A model the current API key is allowed to call."""
+
+    model_id: str
+    name: str | None = None
+
+    @property
+    def label(self) -> str:
+        """Dropdown label with a human-readable name when Bailian provides one."""
+        if self.name and self.name != self.model_id:
+            return f"{self.name} ({self.model_id})"
+        return self.model_id
+
+
 class BailianClient:
     """Async client for Bailian chat, STT and TTS APIs."""
 
@@ -148,6 +163,7 @@ class BailianClient:
         *,
         json_data: dict[str, Any] | None = None,
         extra_headers: Mapping[str, str] | None = None,
+        params: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Perform an HTTP request and return JSON."""
         try:
@@ -156,6 +172,7 @@ class BailianClient:
                 url,
                 headers=self._headers(extra_headers),
                 json=json_data,
+                params=params,
                 timeout=self._timeout,
             ) as response:
                 payload: dict[str, Any]
@@ -198,17 +215,79 @@ class BailianClient:
 
     async def async_list_chat_models(self) -> list[str]:
         """Return chat-capable model IDs from the compatible-mode API."""
+        return [
+            item.model_id
+            for item in await self._async_list_compatible_models()
+            if is_chat_model(item.model_id)
+        ]
+
+    async def async_list_authorized_models(self) -> list[AuthorizedModel]:
+        """Return models this API key is authorized to call.
+
+        Prefer the workspace permissions API (already-authorized inference).
+        Fall back to the compatible-mode catalog if permissions are unavailable.
+        """
+        try:
+            return await self._async_list_permission_models()
+        except BailianError as err:
+            LOGGER.debug(
+                "Could not list Bailian model permissions, falling back to catalog: %s",
+                err,
+            )
+            return await self._async_list_compatible_models()
+
+    async def _async_list_permission_models(self) -> list[AuthorizedModel]:
+        """Page through GET /api/v1/models/permissions?authorization_scope=AUTHORIZED."""
+        models: list[AuthorizedModel] = []
+        seen: set[str] = set()
+        page_no = 1
+        while page_no <= _PERMISSION_MAX_PAGES:
+            payload = await self._request(
+                "GET",
+                f"{self._native_url}/models/permissions",
+                params={
+                    "authorization_scope": "AUTHORIZED",
+                    "action": "INFERENCE",
+                    "page_no": page_no,
+                    "page_size": _PERMISSION_PAGE_SIZE,
+                },
+            )
+            if isinstance(payload, dict) and payload.get("success") is False:
+                raise BailianError(
+                    _extract_error_message(payload) or "Failed to list model permissions"
+                )
+            output = payload.get("output") if isinstance(payload, dict) else None
+            if not isinstance(output, dict):
+                break
+            permissions = output.get("permissions") or []
+            if not isinstance(permissions, list) or not permissions:
+                break
+            for item in permissions:
+                parsed = _parse_authorized_model(item)
+                if parsed is None or parsed.model_id in seen:
+                    continue
+                seen.add(parsed.model_id)
+                models.append(parsed)
+            total = output.get("total")
+            if isinstance(total, int) and len(models) >= total:
+                break
+            if len(permissions) < _PERMISSION_PAGE_SIZE:
+                break
+            page_no += 1
+        LOGGER.debug("Listed %s authorized Bailian models", len(models))
+        return models
+
+    async def _async_list_compatible_models(self) -> list[AuthorizedModel]:
+        """Return the OpenAI-compatible model catalog."""
         payload = await self._request("GET", f"{self._compatible_url}/models")
-        models: list[str] = []
+        models: list[AuthorizedModel] = []
         seen: set[str] = set()
         for item in payload.get("data") or []:
             model_id = item.get("id") if isinstance(item, dict) else None
             if not isinstance(model_id, str) or model_id in seen:
                 continue
-            if not _is_chat_model(model_id):
-                continue
             seen.add(model_id)
-            models.append(model_id)
+            models.append(AuthorizedModel(model_id=model_id))
         return models
 
     async def async_list_custom_voices(self) -> list[CustomVoice]:
@@ -472,6 +551,8 @@ def _is_speech_synthesizer_model(model: str) -> bool:
 
 _VOICE_LIST_PAGE_SIZE = 10
 _VOICE_LIST_MAX_PAGES = 50
+_PERMISSION_PAGE_SIZE = 200
+_PERMISSION_MAX_PAGES = 20
 _OK_VOICE_STATUSES = frozenset({"", "OK", "SUCCESS"})
 _COSYVOICE_MODEL_PREFIXES = (
     "cosyvoice-v3.5-plus",
@@ -575,7 +656,41 @@ _NON_CHAT_MARKERS = (
 )
 
 
-def _is_chat_model(model_id: str) -> bool:
+def is_chat_model(model_id: str) -> bool:
     """Return True if a model ID looks like a text chat model."""
     lowered = model_id.lower()
     return not any(marker in lowered for marker in _NON_CHAT_MARKERS)
+
+
+def is_stt_model(model_id: str) -> bool:
+    """Return True if a model ID looks like a speech-to-text model."""
+    lowered = model_id.lower()
+    return any(marker in lowered for marker in ("asr", "paraformer", "fun-asr", "gummy"))
+
+
+def is_tts_model(model_id: str) -> bool:
+    """Return True if a model ID looks like a text-to-speech model."""
+    lowered = model_id.lower()
+    return (
+        "tts" in lowered
+        or lowered.startswith("cosyvoice")
+        or lowered.startswith("sambert")
+    )
+
+
+def _parse_authorized_model(item: Any) -> AuthorizedModel | None:
+    """Parse one item from the model permissions API."""
+    if not isinstance(item, dict):
+        return None
+    model_id = item.get("model") or item.get("model_id")
+    if not isinstance(model_id, str) or not model_id.strip():
+        return None
+    permissions = item.get("permissions")
+    if isinstance(permissions, dict) and permissions.get("inference") is False:
+        return None
+    name = item.get("name")
+    if not isinstance(name, str) or not name.strip():
+        name = None
+    else:
+        name = name.strip()
+    return AuthorizedModel(model_id=model_id.strip(), name=name)

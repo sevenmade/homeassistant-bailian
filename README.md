@@ -61,7 +61,7 @@
 
    只做文字对话时，两项都可以关掉。之后仍可在集成选项里改。
 
-7. 在 **选择模型** 一步里下拉选择对话 / STT / TTS 模型。也可以手动输入百炼控制台里的模型 ID。已添加的集成：打开该集成 → **配置**，同样可以改模型。
+7. 在 **选择模型** 一步里下拉选择对话 / STT / TTS 模型。列表只包含当前 API Key **已授权**的模型，也可以手动输入模型 ID。已添加的集成：打开该集成 → **配置**，勾选 **刷新已授权模型** 后提交即可重新拉取。
 
 8. 打开 **设置 → 语音助手**，编辑助手：
 
@@ -88,6 +88,9 @@
 - STT 模型与识别上下文（可写入设备名、场景名，提高听写准确率）
 - TTS 模型与默认音色
 - 是否启用 STT / TTS
+- **刷新已授权模型**：勾选后提交，会重新向百炼查询当前 Key 能调用的模型，下拉里不再出现未授权的模型
+
+对话 / STT / TTS 下拉默认只显示账号**已授权**的模型（来自百炼模型授权接口）。在控制台开通新模型后，打开集成配置并勾选刷新即可看到。
 
 ### 推荐模型
 
@@ -107,6 +110,7 @@ TTS 音色会先列出当前 API Key 下**复刻 / 设计的自建音色**（标
 - [语音识别](https://docs.bailian.console.aliyun.com/zh/model-studio/asr-model.md)
 - [语音合成](https://docs.bailian.console.aliyun.com/zh/model-studio/tts-model.md)
 - [声音复刻](https://help.aliyun.com/zh/model-studio/voice-cloning-api-references)
+- [查询模型授权](https://help.aliyun.com/zh/model-studio/list-model-permissions)
 
 ## 只要对话、不要语音
 

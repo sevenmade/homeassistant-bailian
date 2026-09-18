@@ -12,7 +12,7 @@
         "data_description": {
           "region": "不同地域的 API Key 和接入地址不通用。",
           "api_key": "请在与所选地域相同的控制台中创建 API Key。",
-          "workspace_id": "北京、新加坡、弗吉尼亚、中国香港可选。东京和法兰克福的专属域名必须填写。"
+          "workspace_id": "北京、新加坡、弗吉尼亚、中国香港可选。东京和法兰克福的专属域名必须填写。填写后才能按业务空间准确拉取已授权模型。"
         }
       },
       "engines": {
@@ -29,20 +29,22 @@
       },
       "models": {
         "title": "选择模型",
-        "description": "选择对话、语音识别和语音合成使用的百炼模型。列表可下拉选择，也可以手动输入模型 ID。之后仍可在集成选项里修改。",
+        "description": "选择对话、语音识别和语音合成使用的百炼模型。下拉只显示当前 API Key 已授权的模型。勾选刷新并提交可重新拉取列表。也可以手动输入模型 ID。",
         "data": {
           "chat_model": "对话模型",
           "enable_thinking": "开启思考模式",
           "stt_model": "语音识别模型",
           "tts_model": "语音合成模型",
-          "tts_voice": "默认音色"
+          "tts_voice": "默认音色",
+          "refresh_models": "刷新已授权模型"
         },
         "data_description": {
-          "chat_model": "推荐 qwen3.8-flash。语音控家请选 Flash / Turbo，延迟更低。",
+          "chat_model": "只列出当前 Key 已授权的对话模型。语音控家请选 Flash / Turbo，延迟更低。",
           "enable_thinking": "控家请保持关闭。思考模式会明显增加延迟。",
           "stt_model": "推荐 qwen3-asr-flash。",
           "tts_model": "推荐 qwen3-tts-flash。",
-          "tts_voice": "系统音色例如 Cherry，以及账号里复刻、设计的自建音色。"
+          "tts_voice": "系统音色例如 Cherry，以及账号里复刻、设计的自建音色。",
+          "refresh_models": "重新从百炼拉取已授权模型。本页其他填写内容会保留。"
         }
       }
     },
@@ -90,17 +92,19 @@
           "stt_model": "语音识别模型",
           "stt_prompt": "语音识别上下文",
           "tts_model": "语音合成模型",
-          "tts_voice": "默认音色"
+          "tts_voice": "默认音色",
+          "refresh_models": "刷新已授权模型"
         },
         "data_description": {
           "enable_stt": "不需要百炼听写语音时关掉。Assist 可以继续用其他 STT 引擎。",
           "enable_tts": "已有其他 TTS，或不需要朗读回复时关掉。",
           "llm_hass_api": "允许模型调用 Assist 工具，控制已暴露给助手的实体。",
           "prompt": "对话代理的系统指令，支持模板。",
-          "chat_model": "下拉选择百炼对话模型，也可以手动输入模型 ID。",
+          "chat_model": "只列出当前 Key 已授权的对话模型。勾选刷新并提交可重新拉取。",
           "enable_thinking": "语音控家请保持关闭。思考模式会明显增加延迟。",
           "stt_prompt": "可选上下文，有助于识别设备名和场景名。",
-          "tts_voice": "会拉取账号里复刻、设计的自建音色，排在系统音色前面。"
+          "tts_voice": "会拉取账号里复刻、设计的自建音色，排在系统音色前面。",
+          "refresh_models": "重新从百炼拉取已授权模型。本页其他填写内容会保留。"
         }
       }
     }

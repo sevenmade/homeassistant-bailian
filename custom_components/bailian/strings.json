@@ -12,7 +12,7 @@
         "data_description": {
           "region": "Bailian API keys and endpoints are not interchangeable across regions.",
           "api_key": "Create an API key in the same region you select here.",
-          "workspace_id": "Optional for Beijing, Singapore, Virginia and Hong Kong. Required for Tokyo and Frankfurt dedicated endpoints."
+          "workspace_id": "Optional for Beijing, Singapore, Virginia and Hong Kong. Required for Tokyo and Frankfurt dedicated endpoints. Filling it also lets the integration list models authorized for that workspace."
         }
       },
       "engines": {
@@ -29,20 +29,22 @@
       },
       "models": {
         "title": "Models",
-        "description": "Choose which Bailian models to use. You can type a model ID that is not in the list. These can be changed later in the integration options.",
+        "description": "The dropdown lists models this API key is authorized to call. Check refresh and submit to reload the list without saving other changes. You can still type a model ID.",
         "data": {
           "chat_model": "Chat model",
           "enable_thinking": "Enable thinking mode",
           "stt_model": "Speech-to-text model",
           "tts_model": "Text-to-speech model",
-          "tts_voice": "Default voice"
+          "tts_voice": "Default voice",
+          "refresh_models": "Refresh authorized models"
         },
         "data_description": {
-          "chat_model": "Recommended: qwen3.8-flash. Use a Flash/Turbo model for voice commands.",
+          "chat_model": "Only models authorized for this API key. Use a Flash/Turbo model for voice commands.",
           "enable_thinking": "Keep this off for home control. Thinking mode increases latency.",
           "stt_model": "Recommended: qwen3-asr-flash.",
           "tts_model": "Recommended: qwen3-tts-flash.",
-          "tts_voice": "System voice such as Cherry, or a custom cloned/designed voice from your Bailian account."
+          "tts_voice": "System voice such as Cherry, or a custom cloned/designed voice from your Bailian account.",
+          "refresh_models": "Reload the authorized model list from Bailian. Other fields on this page are kept."
         }
       }
     },
@@ -90,17 +92,19 @@
           "stt_model": "Speech-to-text model",
           "stt_prompt": "Speech-to-text context",
           "tts_model": "Text-to-speech model",
-          "tts_voice": "Default voice"
+          "tts_voice": "Default voice",
+          "refresh_models": "Refresh authorized models"
         },
         "data_description": {
           "enable_stt": "Disable this if you do not need Bailian to transcribe voice. Assist can keep using another STT engine.",
           "enable_tts": "Disable this if you already use another TTS engine, or do not need spoken replies.",
           "llm_hass_api": "Allow the model to call Assist tools for exposed entities.",
           "prompt": "System instructions for the conversation agent. Templates are supported.",
-          "chat_model": "Live catalog from Bailian plus recommended IDs. You can also type a custom model ID.",
+          "chat_model": "Only models this API key is authorized to call. Check refresh and submit to reload the list.",
           "enable_thinking": "Keep this off for voice control. Thinking mode increases latency.",
           "stt_prompt": "Optional context that improves recognition of device names and scenes.",
-          "tts_voice": "Includes cloned and designed voices from your Bailian account, listed before system voices."
+          "tts_voice": "Includes cloned and designed voices from your Bailian account, listed before system voices.",
+          "refresh_models": "Reload authorized models from Bailian. Other fields on this page are kept."
         }
       }
     }
