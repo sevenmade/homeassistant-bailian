@@ -47,7 +47,7 @@ class BailianTTSEntity(TextToSpeechEntity):
     """Bailian text-to-speech entity."""
 
     _attr_has_entity_name = True
-    _attr_name = None
+    _attr_name = "TTS"
     _attr_translation_key = "tts"
     _attr_supported_languages = list(TTS_LANGUAGES)
     _attr_default_language = "zh-CN"
