@@ -1,82 +1,127 @@
-# Alibaba Cloud Bailian for Home Assistant
+# 阿里云百炼与 Home Assistant 集成
 
-把 [阿里云百炼](https://docs.bailian.console.aliyun.com/zh/model-studio/) 接到 Home Assistant Assist：对话（可控制已暴露实体）、语音识别（STT）、语音合成（TTS）。
+[![GitHub stars](https://img.shields.io/github/stars/sevenmade/homeassistant-bailian.svg?style=social&label=Stars)](https://github.com/sevenmade/homeassistant-bailian/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/sevenmade/homeassistant-bailian.svg?style=social&label=Fork)](https://github.com/sevenmade/homeassistant-bailian/network/members)
+[![GitHub watchers](https://img.shields.io/github/watchers/sevenmade/homeassistant-bailian.svg?style=social&label=Watch)](https://github.com/sevenmade/homeassistant-bailian/watchers)
+[![GitHub followers](https://img.shields.io/github/followers/sevenmade.svg?style=social&label=Follow)](https://github.com/sevenmade?tab=followers)
+
+[![GitHub issues](https://img.shields.io/github/issues/sevenmade/homeassistant-bailian.svg)](https://github.com/sevenmade/homeassistant-bailian/issues)
+[![GitHub license](https://img.shields.io/github/license/sevenmade/homeassistant-bailian.svg)](https://github.com/sevenmade/homeassistant-bailian/blob/main/LICENSE)
+[![GitHub last commit](https://img.shields.io/github/last-commit/sevenmade/homeassistant-bailian.svg)](https://github.com/sevenmade/homeassistant-bailian/commits)
+[![GitHub repo size](https://img.shields.io/github/repo-size/sevenmade/homeassistant-bailian.svg)](https://github.com/sevenmade/homeassistant-bailian)
+[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.8%2B-41BDF5.svg)](https://www.home-assistant.io/)
+
+---
+
+## 简介
+
+把 [阿里云百炼](https://docs.bailian.console.aliyun.com/zh/model-studio/) 接到 Home Assistant Assist，用千问大模型做对话控家，并用百炼做语音识别（STT）和语音合成（TTS）。
+
+支持的能力：
+
+1. **对话** — 默认 `qwen3.8-flash`，走 OpenAI 兼容接口。可调用 Home Assistant Assist 工具，控制已暴露给助手的实体。思考模式默认关闭，适合「关灯」这类短指令。
+2. **语音识别（STT，可选）** — 默认 `qwen3-asr-flash`。Assist 送来的本地音频用 Base64 同步转写，不需要公网文件 URL。
+3. **语音合成（TTS，可选）** — 默认 `qwen3-tts-flash`，默认音色 `Cherry`。
+
+对话始终启用。如果不需要听或说，安装时可关掉 STT / TTS，Assist 也可以混用其他引擎（例如识别用 Whisper、播报用 Piper）。
 
 最低 Home Assistant 版本：**2025.8.0**。
 
-## 能力
-
-| 平台 | 默认模型 | 接口 |
-| --- | --- | --- |
-| 对话 | `qwen3.8-flash` | OpenAI 兼容 `/chat/completions`，Function Calling 走 Assist API |
-| STT | `qwen3-asr-flash` | DashScope 同步识别，本地音频 Base64，不依赖公网文件 URL |
-| TTS | `qwen3-tts-flash` | DashScope HTTP 合成，默认音色 Cherry |
-
-思考模式默认关闭，适合语音关灯这类短指令。
-
 ## 安装
 
-### HACS（推荐）
+### 通过 HACS 安装
 
-1. HACS → Integrations → 自定义仓库，添加本仓库，类别选 Integration
-2. 下载 **Alibaba Cloud Bailian**
-3. 重启 Home Assistant
-4. 设置 → 设备与服务 → 添加集成 → 搜索 **Alibaba Cloud Bailian**
+1. 确保已安装 [HACS](https://hacs.xyz/)。
+
+2. 点击下面的按钮，在 Home Assistant 中打开本仓库：
+
+   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=sevenmade&repository=homeassistant-bailian&category=integration)
+
+   或手动添加：HACS → 集成 → 自定义仓库，填入：
+
+   `https://github.com/sevenmade/homeassistant-bailian`
+
+   类别选择 **Integration**。
+
+3. 下载 **Alibaba Cloud Bailian**，然后**重启 Home Assistant**。
+
+4. 打开 **设置 → 设备与服务**，点击右下角 **添加集成**，搜索 `Alibaba Cloud Bailian` 或 `百炼` 并添加。
+
+5. 填写配置（地域为必选，默认预选北京）：
+
+   - **地域**：必须与 API Key 所在地域一致，Key 不能跨地域使用
+   - **API Key**：在 [百炼控制台](https://docs.bailian.console.aliyun.com/zh/model-studio/get-api-key) 创建
+   - **业务空间 ID**：北京 / 新加坡 / 弗吉尼亚 / 中国香港可选；东京、法兰克福的专属域名必填
+
+6. 下一步选择是否启用语音引擎：
+
+   - 启用语音识别（STT）
+   - 启用语音合成（TTS）
+
+   只做文字对话时，两项都可以关掉。之后仍可在集成选项里改。
+
+7. 打开 **设置 → 语音助手**，编辑助手：
+
+   - 对话代理选 **Alibaba Cloud Bailian**
+   - 如已启用，语音转文字、文字转语音也可选百炼
+   - 到 **语音助手 → 公开**，只勾选允许模型控制的实体
+
+8. 完成。
 
 ### 手动安装
 
-把 `custom_components/bailian` 复制到 Home Assistant 的 `custom_components/` 目录后重启。
+1. 将 `custom_components/bailian` 复制到 Home Assistant 配置目录的 `custom_components/` 下。
+2. 重启 Home Assistant。
+3. 按上面第 4 步起添加集成。
 
-## 配置
+## 配置说明
 
-添加集成时**必须选择地域**，下拉框默认预选 **华北 2（北京）**。
+地域、API Key、业务空间 ID 属于账号配置。更换 Key 请走重新认证，不要写进 YAML。
 
-需要准备：
+集成 **选项** 里可以改：
 
-- 与所选地域一致的 [百炼 API Key](https://docs.bailian.console.aliyun.com/zh/model-studio/get-api-key)
-- 业务空间 ID：北京 / 新加坡 / 弗吉尼亚 / 中国香港可选；东京、法兰克福的专属域名必填
+- 是否允许控制 Home Assistant（Assist API）
+- 对话指令、对话模型、温度、最大 Token、思考模式
+- STT 模型与识别上下文（可写入设备名、场景名，提高听写准确率）
+- TTS 模型与默认音色
+- 是否启用 STT / TTS
 
-装好后到 **设置 → 语音助手**，把需要的引擎选成百炼。只做文字对话时，不必选择 STT / TTS。
+### 推荐模型
 
-只允许模型控制你在「暴露给助手」里勾选的实体。
+| 类型 | 默认 | 可选 |
+| --- | --- | --- |
+| 对话 | `qwen3.8-flash` | `qwen3.7-plus`、`qwen3.8-max`、`qwen-plus`、`qwen-flash`、`qwen-turbo` |
+| STT | `qwen3-asr-flash` | `qwen3-asr-flash-2026-02-10`、`qwen3-asr-flash-2025-09-08` |
+| TTS | `qwen3-tts-flash` | `qwen3-tts-instruct-flash`、`qwen-audio-3.0-tts-flash`、`cosyvoice-v3-flash` |
+
+TTS 音色列表（`qwen3-tts-flash`）：`Cherry`、`Serena`、`Ethan`、`Chelsie` 等，可在选项中选择或手动填写。
+
+文档：
+
+- [百炼产品简介](https://docs.bailian.console.aliyun.com/zh/model-studio/)
+- [获取 API Key](https://docs.bailian.console.aliyun.com/zh/model-studio/get-api-key)
+- [文本生成 / 对话](https://docs.bailian.console.aliyun.com/zh/model-studio/text-generation-model.md)
+- [语音识别](https://docs.bailian.console.aliyun.com/zh/model-studio/asr-model.md)
+- [语音合成](https://docs.bailian.console.aliyun.com/zh/model-studio/tts-model.md)
 
 ## 只要对话、不要语音
 
-对话代理始终创建。STT 和 TTS 是可选的：
-
-- **添加集成的第二步**可以关掉「语音识别」或「语音合成」
-- 之后在集成 **配置 → 选项** 里也能随时开关；关掉后对应实体会卸载，不会再出现在语音助手列表里
-- Assist 管道可以混用：例如对话用百炼，TTS 继续用 Piper / 微软
-
-常见组合：
-
 | 需求 | 怎么配 |
 | --- | --- |
-| 只在网页/App 里打字控家 | 关掉 STT 和 TTS |
-| 能听但不能说（用现有 Piper 播报） | 只开 STT，关掉 TTS |
-| 只要百炼朗读，识别用本地 Whisper | 只开 TTS，关掉 STT |
+| 只在网页 / App 里打字控家 | 关掉 STT 和 TTS |
+| 能听，播报用现有 Piper | 只开 STT |
+| 识别用本地 Whisper，只要百炼朗读 | 只开 TTS |
 | 完整中文语音助手 | STT + 对话 + TTS 都开 |
 
-## 默认与可选项
+Assist 管道可以混用：对话用百炼，STT / TTS 用其他引擎。
 
-集成选项里可以改：
+## 说明
 
-- 对话模型、温度、最大 Token、是否开启思考
-- STT 模型与识别上下文（可写设备名、场景名）
-- TTS 模型与默认音色
-
-地域、API Key、业务空间 ID 属于账号配置，改它们请走「重新配置 / 重新认证」，不要写进 YAML。
-
-## 仓库结构
-
-后续若要提交 Home Assistant 官方库，`custom_components/bailian/client.py` 会拆成独立的 PyPI 异步库。当前为了方便 HACS 安装，客户端先放在集成内部。
-
-## 开发说明
-
-- 全程 `aiohttp` 异步调用，不依赖官方同步 `dashscope` SDK
-- 不使用 Token Plan / Coding Plan 域名（那是给编程工具用的）
-- 第一期不做智能体工作流、Omni 全双工、声音复刻
+- 全程异步 HTTP 调用，不依赖官方同步 `dashscope` SDK
+- 不要使用 Token Plan / Coding Plan 的域名和 Key（那是给编程工具用的，不能当 Home Assistant 后端）
+- 当前不做百炼智能体工作流、Omni 全双工语音、声音复刻
 
 ## 许可证
 
-Apache-2.0
+[Apache-2.0](LICENSE)
