@@ -48,6 +48,8 @@
 
 4. 打开 **设置 → 设备与服务**，点击右下角 **添加集成**，搜索 `Alibaba Cloud Bailian` 或 `百炼` 并添加。
 
+   ![在 Home Assistant 中搜索并添加 Alibaba Cloud Bailian](images/add-integration.png)
+
 5. 填写配置（地域为必选，默认预选北京）：
 
    - **地域**：必须与 API Key 所在地域一致，Key 不能跨地域使用
