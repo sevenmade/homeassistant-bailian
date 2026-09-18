@@ -1,0 +1,14 @@
+{
+  "domain": "bailian",
+  "name": "Alibaba Cloud Bailian",
+  "after_dependencies": ["assist_pipeline", "intent"],
+  "codeowners": ["@sevenmade"],
+  "config_flow": true,
+  "dependencies": ["conversation"],
+  "documentation": "https://github.com/sevenmade/homeassistant-bailian",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/sevenmade/homeassistant-bailian/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

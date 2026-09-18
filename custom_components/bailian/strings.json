@@ -1,0 +1,88 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Alibaba Cloud Bailian",
+        "description": "Sign in with a [Bailian API key]({docs_url}). Region is required (Beijing is pre-selected). A workspace ID is required for Tokyo and Frankfurt, and optional elsewhere.",
+        "data": {
+          "region": "Region",
+          "api_key": "API key",
+          "workspace_id": "Workspace ID"
+        },
+        "data_description": {
+          "region": "Bailian API keys and endpoints are not interchangeable across regions.",
+          "api_key": "Create an API key in the same region you select here.",
+          "workspace_id": "Optional for Beijing, Singapore, Virginia and Hong Kong. Required for Tokyo and Frankfurt dedicated endpoints."
+        }
+      },
+      "engines": {
+        "title": "Speech engines",
+        "description": "Conversation is always enabled. Turn off speech-to-text or text-to-speech if you only need text chat. You can change this later in the integration options.",
+        "data": {
+          "enable_stt": "Enable speech-to-text",
+          "enable_tts": "Enable text-to-speech"
+        },
+        "data_description": {
+          "enable_stt": "Used by Assist satellites and voice pipelines. Leave off if you only type.",
+          "enable_tts": "Used to speak replies. Leave off if you already have another TTS engine."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to Bailian. Check your network and region.",
+      "invalid_auth": "Invalid API key, or the key does not match the selected region.",
+      "unknown": "Unexpected error. Check the Home Assistant logs.",
+      "workspace_required": "This region requires a workspace ID."
+    },
+    "abort": {
+      "already_configured": "This Bailian account is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "entity": {
+    "conversation": {
+      "conversation": {
+        "name": "Conversation"
+      }
+    },
+    "stt": {
+      "stt": {
+        "name": "Speech-to-text"
+      }
+    },
+    "tts": {
+      "tts": {
+        "name": "Text-to-speech"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Bailian options",
+        "data": {
+          "enable_stt": "Enable speech-to-text",
+          "enable_tts": "Enable text-to-speech",
+          "llm_hass_api": "Control Home Assistant",
+          "prompt": "Instructions",
+          "chat_model": "Chat model",
+          "enable_thinking": "Enable thinking mode",
+          "temperature": "Temperature",
+          "max_tokens": "Maximum tokens",
+          "stt_model": "Speech-to-text model",
+          "stt_prompt": "Speech-to-text context",
+          "tts_model": "Text-to-speech model",
+          "tts_voice": "Default voice"
+        },
+        "data_description": {
+          "enable_stt": "Disable this if you do not need Bailian to transcribe voice. Assist can keep using another STT engine.",
+          "enable_tts": "Disable this if you already use another TTS engine, or do not need spoken replies.",
+          "llm_hass_api": "Allow the model to call Assist tools for exposed entities.",
+          "prompt": "System instructions for the conversation agent. Templates are supported.",
+          "enable_thinking": "Keep this off for voice control. Thinking mode increases latency.",
+          "stt_prompt": "Optional context that improves recognition of device names and scenes."
+        }
+      }
+    }
+  }
+}

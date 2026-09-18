@@ -1,0 +1,88 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "阿里云百炼",
+        "description": "使用 [百炼 API Key]({docs_url}) 登录。地域为必选项（默认预选北京）。东京和法兰克福必须填写业务空间 ID，其他地域可选。",
+        "data": {
+          "region": "地域",
+          "api_key": "API Key",
+          "workspace_id": "业务空间 ID"
+        },
+        "data_description": {
+          "region": "不同地域的 API Key 和接入地址不通用。",
+          "api_key": "请在与所选地域相同的控制台中创建 API Key。",
+          "workspace_id": "北京、新加坡、弗吉尼亚、中国香港可选。东京和法兰克福的专属域名必须填写。"
+        }
+      },
+      "engines": {
+        "title": "语音引擎",
+        "description": "对话功能始终开启。如果不需要语音识别或语音播报，可以关掉。之后仍可在集成选项里改。",
+        "data": {
+          "enable_stt": "启用语音识别（STT）",
+          "enable_tts": "启用语音合成（TTS）"
+        },
+        "data_description": {
+          "enable_stt": "给 Assist 卫星和语音管道用。如果只打字聊天，可以关掉。",
+          "enable_tts": "用来朗读回复。如果已经在用别的 TTS，可以关掉。"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "无法连接百炼，请检查网络和地域。",
+      "invalid_auth": "API Key 无效，或与所选地域不匹配。",
+      "unknown": "发生未知错误，请查看 Home Assistant 日志。",
+      "workspace_required": "当前地域必须填写业务空间 ID。"
+    },
+    "abort": {
+      "already_configured": "该百炼账号已经配置过。",
+      "reauth_successful": "重新认证成功。"
+    }
+  },
+  "entity": {
+    "conversation": {
+      "conversation": {
+        "name": "对话"
+      }
+    },
+    "stt": {
+      "stt": {
+        "name": "语音识别"
+      }
+    },
+    "tts": {
+      "tts": {
+        "name": "语音合成"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "百炼选项",
+        "data": {
+          "enable_stt": "启用语音识别（STT）",
+          "enable_tts": "启用语音合成（TTS）",
+          "llm_hass_api": "控制 Home Assistant",
+          "prompt": "指令",
+          "chat_model": "对话模型",
+          "enable_thinking": "开启思考模式",
+          "temperature": "温度",
+          "max_tokens": "最大 Token 数",
+          "stt_model": "语音识别模型",
+          "stt_prompt": "语音识别上下文",
+          "tts_model": "语音合成模型",
+          "tts_voice": "默认音色"
+        },
+        "data_description": {
+          "enable_stt": "不需要百炼听写语音时关掉。Assist 可以继续用其他 STT 引擎。",
+          "enable_tts": "已有其他 TTS，或不需要朗读回复时关掉。",
+          "llm_hass_api": "允许模型调用 Assist 工具，控制已暴露给助手的实体。",
+          "prompt": "对话代理的系统指令，支持模板。",
+          "enable_thinking": "语音控家请保持关闭。思考模式会明显增加延迟。",
+          "stt_prompt": "可选上下文，有助于识别设备名和场景名。"
+        }
+      }
+    }
+  }
+}
